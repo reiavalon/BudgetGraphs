@@ -1,39 +1,40 @@
 <template>
     <div>
-        <div id="vueComponent"></div>
-        <div :ref="'paymentsGraph' + uuid" />
-        <div :ref="'principalGraph' + uuid" />
-        <div id="graphDiv"></div>
-        <div id="graphDiv2"></div>
-        <div id="graphDiv3"></div>
+        <div id="paymentsGraph" />
+        <div id="principalGraph" />
         <div class="row">
-            <slider title="Extra Periodic" @value-changed="onPeriodicChanged"/>
-            <slider title="Extra OneTime" @value-changed="onOneTimeChanged"/>
+            <slider class="col" title="Extra Periodic" @value-changed="onPeriodicChanged"/>
+            <slider class="col" title="Extra OneTime" @value-changed="onOneTimeChanged"/>
         </div>
 
         <div class="row">
             <div class="col"></div>
             <div class="col">Interest</div>
+            <div class="col">Interest Difference</div>
             <div class="col">Payoff Date</div>
         </div>
         <div class="row">
             <div class="col">Base</div>
             <div class="col">{{baseInterest}}</div>
+            <div class="col">-</div>
             <div class="col">{{basePayoffDate}}</div>
         </div>
         <div class="row">
             <div class="col">Current</div>
             <div class="col">{{currentInterest}}</div>
+            <div class="col">{{(baseInterest - baseInterest).toFixed(2)}}</div>
             <div class="col">{{currentPayoffDate}}</div>
         </div>
         <div class="row">
             <div class="col">Periodic</div>
             <div class="col">{{periodicInterest}}</div>
+            <div class="col">{{(baseInterest - periodicInterest).toFixed(2)}}</div>
             <div class="col">{{periodicPayoffDate}}</div>
         </div>
         <div class="row">
             <div class="col">One Time</div>
             <div class="col">{{oneTimeInterest}}</div>
+            <div class="col">{{(baseInterest - oneTimeInterest).toFixed(2)}}</div>
             <div class="col">{{oneTimePayoffDate}}</div>
         </div>
     </div>
@@ -42,7 +43,6 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 import Slider from '@/components/Slider.vue';
-import ReactiveChart from '@/components/ReactiveChart.vue';
 import { extraPaymentElem, amortizedElem, chartType } from '@/functions/types';
 import { advanceDateByMonth } from '@/functions/extraPaymentFunctions';
 import { createAmortized } from '@/functions/createAmortized';
@@ -51,8 +51,7 @@ import * as _ from 'lodash';
 
 @Component({
   components: {
-    Slider,
-    ReactiveChart
+    Slider
   },
 })
 export default class BudgetGraphs extends Vue {
@@ -238,37 +237,23 @@ export default class BudgetGraphs extends Vue {
     }
 
     private updateGraphs() {
-        let data = [this.base_ppmtTrace, this.base_ipmtTrace, this.modified_ppmtTrace, this.modified_ipmtTrace];
-        let principalData = [this.base_principalTrace, this.modified_principalTrace];
-
-        Plotly.react(<HTMLElement>this.$refs['paymentsGraph' + this.uuid], 
-            data, this.layout);
-        Plotly.react(<HTMLElement>this.$refs['principalGraph' + this.uuid],
-            principalData, this.layout);
+        Plotly.react('paymentsGraph', 
+            [this.base_ppmtTrace, this.base_ipmtTrace, this.modified_ppmtTrace, this.modified_ipmtTrace, this.periodic_ppmtTrace, this.periodic_ipmtTrace, this.oneTime_ppmtTrace, this.oneTime_ipmtTrace], this.layout);
+        Plotly.react('principalGraph',
+            [this.base_principalTrace, this.modified_principalTrace, this.periodic_principalTrace, this.oneTime_principalTrace], this.layout);
     }
 
     private onPeriodicChanged(input: number) {
         this.periodicModifiedAmortized = createAmortized(this.principal, this.apr, this.startDate, this.payment, this._extraPaymentArray, input);
-        this.periodic_ppmtTrace = {
-            type: "scatter",
-            name: "Periodic Principal Payment",
-            x: _.map(this.periodicModifiedAmortized, row => row.date),
-            y: _.map(this.periodicModifiedAmortized, row => row.ppmt)
-        };
 
-        this.periodic_ipmtTrace = {
-            type: "scatter",
-            name: "Periodic Interest Payment",
-            x: _.map(this.periodicModifiedAmortized, row => row.date),
-            y: _.map(this.periodicModifiedAmortized, row => row.ipmt),
-        };
+        this.periodic_ppmtTrace.x = _.map(this.periodicModifiedAmortized, row => row.date);
+        this.periodic_ppmtTrace.y = _.map(this.periodicModifiedAmortized, row => row.ppmt);
 
-        this.periodic_principalTrace = {
-            type: "scatter",
-            name: "Periodic Total Principal",
-            x: _.map(this.periodicModifiedAmortized, row => row.date),
-            y: _.map(this.periodicModifiedAmortized, row => row.principal)
-        };
+        this.periodic_ipmtTrace.x = _.map(this.periodicModifiedAmortized, row => row.date);
+        this.periodic_ipmtTrace.y = _.map(this.periodicModifiedAmortized, row => row.ipmt);
+
+        this.periodic_principalTrace.x = _.map(this.periodicModifiedAmortized, row => row.date);
+        this.periodic_principalTrace.y = _.map(this.periodicModifiedAmortized, row => row.principal);
 
         this.updateGraphs();
     }
@@ -280,26 +265,15 @@ export default class BudgetGraphs extends Vue {
         newExtraPaymentsArray.push({ date: newDate, amount: input });
 
         this.oneTimeModifiedAmortized = createAmortized(this.principal, this.apr, this.startDate, this.payment, newExtraPaymentsArray, 0);
-        this.oneTime_ppmtTrace = {
-            type: "scatter",
-            name: "One Time Principal Payment",
-            x: _.map(this.oneTimeModifiedAmortized, row => row.date),
-            y: _.map(this.oneTimeModifiedAmortized, row => row.ppmt)
-        };
 
-        this.oneTime_ipmtTrace = {
-            type: "scatter",
-            name: "One Time Interest Payment",
-            x: _.map(this.oneTimeModifiedAmortized, row => row.date),
-            y: _.map(this.oneTimeModifiedAmortized, row => row.ipmt),
-        };
+        this.oneTime_ppmtTrace.x = _.map(this.oneTimeModifiedAmortized, row => row.date);
+        this.oneTime_ppmtTrace.y = _.map(this.oneTimeModifiedAmortized, row => row.ppmt);
 
-        this.oneTime_principalTrace = {
-            type: "scatter",
-            name: "One Time Total Principal",
-            x: _.map(this.oneTimeModifiedAmortized, row => row.date),
-            y: _.map(this.oneTimeModifiedAmortized, row => row.principal)
-        };
+        this.oneTime_ipmtTrace.x = _.map(this.oneTimeModifiedAmortized, row => row.date);
+        this.oneTime_ipmtTrace.y = _.map(this.oneTimeModifiedAmortized, row => row.ipmt);
+
+        this.oneTime_principalTrace.x = _.map(this.oneTimeModifiedAmortized, row => row.date);
+        this.oneTime_principalTrace.y = _.map(this.oneTimeModifiedAmortized, row => row.principal);
 
         this.updateGraphs();
     }
@@ -313,5 +287,11 @@ export default class BudgetGraphs extends Vue {
     }
     .value {
         display: inline-block;
+    }
+    .row {
+        display: flex;
+    }
+    .col {
+        flex: 1;
     }
 </style>

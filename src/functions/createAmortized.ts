@@ -16,7 +16,8 @@ export function createAmortized(startingPrincipal: number, apr: number,
         let ppmt = payment - ipmt;
         let extraPayment = (currentDate.getTime() > (new Date()).getTime()) ? periodicExtra : 0;
         extraPayment += getExtraPaymentsForMonth(extraPaymentArray, currentDate);
-        currentPrincipal -= (ppmt + extraPayment);
+        ppmt += extraPayment;
+        currentPrincipal -= (ppmt);
         let amortizedElem: amortizedElem = {
             date: currentDate,
             principal: currentPrincipal,
