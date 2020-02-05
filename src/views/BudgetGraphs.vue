@@ -1,7 +1,15 @@
 <template>
     <div>
-        <div id="paymentsGraph" />
-        <div id="principalGraph" />
+        <div>Beginning Principal: {{principal}}</div>
+        <div>APR: {{apr * 100}}%</div>
+        <div>Beginning Date: {{startDate.toDateString()}}</div>
+        <div>Payment: ${{payment}}</div>
+        <div :ref="'paymentsGraph' + uuid" id="paymentsGraph" />
+        <div :ref="'principalGraph' + uuid" id="principalGraph" />
+        <div :ref="'interestPeriodicGraph' + uuid" id="interestGraph" />
+        <div :ref="'payoffPeriodicGraph' + uuid" id="payoffGraph" />
+        <div :ref="'interestOneTimeGraph' + uuid" id="interestGraph" />
+        <div :ref="'payoffDateOneTimeGraph' + uuid" id="payoffGraph" />
         <div class="row">
             <slider class="col" title="Extra Periodic" @value-changed="onPeriodicChanged"/>
             <slider class="col" title="Extra OneTime" @value-changed="onOneTimeChanged"/>
@@ -41,12 +49,12 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+import { Component, Vue, Prop } from 'vue-property-decorator';
 import Slider from '@/components/Slider.vue';
 import { extraPaymentElem, amortizedElem, chartType } from '@/functions/types';
 import { advanceDateByMonth } from '@/functions/extraPaymentFunctions';
-import { createAmortized } from '@/functions/createAmortized';
-import Plotly from 'plotly.js';
+import { AmortizedSchedule } from '@/functions/AmortizedSchedule';
+import Plotly,{ PlotData } from 'plotly.js';
 import * as _ from 'lodash';
 
 @Component({
@@ -55,44 +63,48 @@ import * as _ from 'lodash';
   },
 })
 export default class BudgetGraphs extends Vue {
+    @Prop() principal!: number;
+    @Prop() apr!: number;
+    @Prop() startDate!: Date;
+    @Prop() payment!: number;
+    @Prop() uuid!: number;
 
-    private principal = 188000.00;
-    private apr = 0.0375;
-    private startDate = new Date();
-    private payment = 870.66;
+    private baseAmortized: AmortizedSchedule = new AmortizedSchedule(this.principal, this.apr, this.startDate, this.payment, []);
+    private modifiedAmortized: AmortizedSchedule = new AmortizedSchedule(this.principal, this.apr, this.startDate, this.payment, []);
+    private periodicModifiedAmortized: AmortizedSchedule = new AmortizedSchedule(this.principal, this.apr, this.startDate, this.payment, []);
+    private oneTimeModifiedAmortized: AmortizedSchedule = new AmortizedSchedule(this.principal, this.apr, this.startDate, this.payment, []);
 
-    private uuid = 0;
-
-    private baseAmortized: amortizedElem[] = [];
-    private modifiedAmortized: amortizedElem[] = [];
-    private periodicModifiedAmortized: amortizedElem[] = [];
-    private oneTimeModifiedAmortized: amortizedElem[] = [];
-
-    private _extraPaymentArray: extraPaymentElem[] = [];
-
-    private base_ppmtTrace: any = {};
-    private base_ipmtTrace: any = {};
-    private base_principalTrace: any = {};
-
-    private modified_ppmtTrace: any = {};
-    private modified_ipmtTrace: any = {};
-    private modified_principalTrace: any = {};
-
-    private periodic_ppmtTrace: any = {};
-    private periodic_ipmtTrace: any = {};
-    private periodic_principalTrace: any = {};
-
-    private oneTime_ppmtTrace: any = {};
-    private oneTime_ipmtTrace: any = {};
-    private oneTime_principalTrace: any = {};
+    private extraPaymentArray: extraPaymentElem[] = [];
 
     private currentPeriodic: number = 0;
     private currentOneTime: number = 0;
 
-    private layout: any = {};
+    private interestPeriodicGraph: Partial<PlotData> = {
+        type: "scatter",
+        name: "Interest Periodic Graph",
+        x: [],
+        y: []
+    }
 
-    interestCalc(sum: number, elem: amortizedElem) {
-        return (sum + elem.ipmt);
+    private payoffDatePeriodicGraph: Partial<PlotData> = {
+        type: "scatter",
+        name: "Payoff Periodic Graph",
+        x: [],
+        y: []
+    }
+
+    private interestOneTimeGraph: Partial<PlotData> = {
+        type: "scatter",
+        name: "Interest Periodic Graph",
+        x: [],
+        y: []
+    }
+
+    private payoffDateOneTimeGraph: Partial<PlotData> = {
+        type: "scatter",
+        name: "Payoff Periodic Graph",
+        x: [],
+        y: []
     }
 
     private getPayout(amortized: amortizedElem[]): string {
@@ -105,176 +117,152 @@ export default class BudgetGraphs extends Vue {
         }
     }
 
-    get baseInterest(): string {
-        return _.reduce(this.baseAmortized, this.interestCalc, 0).toFixed(2);
-    }
-    get basePayoffDate(): string {
-        return this.getPayout(this.baseAmortized);
+    get baseInterest(): string { return this.baseAmortized.totalInterest.toFixed(2); }
+    get currentInterest(): string { return this.modifiedAmortized.totalInterest.toFixed(2); }
+    get periodicInterest(): string { return this.periodicModifiedAmortized.totalInterest.toFixed(2); }
+    get oneTimeInterest(): string { return this.oneTimeModifiedAmortized.totalInterest.toFixed(2); }
+
+    get basePayoffDate(): string { return this.baseAmortized.payoffDate.toDateString(); }
+    get currentPayoffDate(): string { return this.modifiedAmortized.payoffDate.toDateString(); }
+    get periodicPayoffDate(): string { return this.periodicModifiedAmortized.payoffDate.toDateString(); }
+    get oneTimePayoffDate(): string { return this.oneTimeModifiedAmortized.payoffDate.toDateString(); }
+
+    private ppmtTrace(amortizedSchedule: AmortizedSchedule, name: string): Partial<PlotData> {
+        return {
+            type: "scatter",
+            name: name,
+            x: amortizedSchedule.dateArray,
+            y: amortizedSchedule.ppmtArray
+        }
     }
 
-    get currentInterest(): string {
-        return _.reduce(this.modifiedAmortized, this.interestCalc, 0).toFixed(2);
-    }
-    get currentPayoffDate(): string {
-        return this.getPayout(this.baseAmortized);
-    }
-
-    get periodicInterest(): string {
-        return _.reduce(this.periodicModifiedAmortized, this.interestCalc, 0).toFixed(2);
-    }
-    get periodicPayoffDate(): string {
-        return this.getPayout(this.periodicModifiedAmortized);
+    private ipmtTrace(amortizedSchedule: AmortizedSchedule, name: string): Partial<PlotData> {
+        return {
+            type: "scatter",
+            name: "Principal Payment",
+            x: amortizedSchedule.dateArray,
+            y: amortizedSchedule.ipmtArray
+        }
     }
 
-    get oneTimeInterest(): string {
-        return _.reduce(this.oneTimeModifiedAmortized, this.interestCalc, 0).toFixed(2);
+    private principalTrace(amortizedSchedule: AmortizedSchedule, name: string): Partial<PlotData> {
+        return {
+            type: "scatter",
+            name: "Principal Payment",
+            x: amortizedSchedule.dateArray,
+            y: amortizedSchedule.principalArray
+        }
     }
-    get oneTimePayoffDate(): string {
-        return this.getPayout(this.oneTimeModifiedAmortized);
+
+    get base_ppmtTrace(): Partial<PlotData> { return this.ppmtTrace(this.baseAmortized, "Base Principal Payment"); }
+    get base_ipmtTrace(): Partial<PlotData> { return this.ipmtTrace(this.baseAmortized, "Base Interest Payment"); }
+    get base_principalTrace(): Partial<PlotData> { return this.principalTrace(this.baseAmortized, "Base Principal"); }
+
+    get modified_ppmtTrace(): Partial<PlotData> { return this.ppmtTrace(this.modifiedAmortized, "Modified Principal Payment"); }
+    get modified_ipmtTrace(): Partial<PlotData> { return this.ipmtTrace(this.modifiedAmortized, "Modified Interest Payment"); }
+    get modified_principalTrace(): Partial<PlotData> { return this.principalTrace(this.modifiedAmortized, "Modified Principal"); }
+
+    get periodic_ppmtTrace(): Partial<PlotData> { return this.ppmtTrace(this.periodicModifiedAmortized, "Periodic Principal Payment"); }
+    get periodic_ipmtTrace(): Partial<PlotData> { return this.ipmtTrace(this.periodicModifiedAmortized,"Periodic Interest Payment"); }
+    get periodic_principalTrace(): Partial<PlotData> { return this.principalTrace(this.periodicModifiedAmortized, "Periodic Principal"); }
+
+    get oneTime_ppmtTrace(): Partial<PlotData> { return this.ppmtTrace(this.oneTimeModifiedAmortized, "One Time Principal Payment"); }
+    get oneTime_ipmtTrace(): Partial<PlotData> { return this.ipmtTrace(this.oneTimeModifiedAmortized,"One Time Interest Payment"); }
+    get oneTime_principalTrace(): Partial<PlotData> { return this.principalTrace(this.oneTimeModifiedAmortized, "One Time Principal"); }
+
+    get AmortizedTraceArray() {
+        return [
+            this.base_ppmtTrace, 
+            this.base_ipmtTrace, 
+            this.modified_ppmtTrace, 
+            this.modified_ipmtTrace, 
+            this.periodic_ppmtTrace, 
+            this.periodic_ipmtTrace, 
+            this.oneTime_ppmtTrace, 
+            this.oneTime_ipmtTrace
+        ]
+    }
+
+    get PrincipalTraceArray() {
+        return [
+            this.base_principalTrace, 
+            this.modified_principalTrace, 
+            this.periodic_principalTrace, 
+            this.oneTime_principalTrace
+        ]
     }
 
     mounted() {
-        this._extraPaymentArray = []
+        this.extraPaymentArray = []
 
-        this.startDate.setDate(27);
-        this.startDate.setMonth(10-1);
-        this.startDate.setFullYear(2017);
+        this.baseAmortized = new AmortizedSchedule(this.principal, this.apr, this.startDate, this.payment, []);
+        this.modifiedAmortized = new AmortizedSchedule(this.principal, this.apr, this.startDate, this.payment, this.extraPaymentArray);
+        this.periodicModifiedAmortized = new AmortizedSchedule(this.principal, this.apr, this.startDate, this.payment, []);
+        this.oneTimeModifiedAmortized = new AmortizedSchedule(this.principal, this.apr, this.startDate, this.payment, []);
 
-        this.baseAmortized = createAmortized(this.principal, this.apr, this.startDate, this.payment);
-        this.modifiedAmortized = createAmortized(this.principal, this.apr, this.startDate, this.payment, this._extraPaymentArray);
-        this.periodicModifiedAmortized = createAmortized(this.principal, this.apr, this.startDate, this.payment, this._extraPaymentArray, 0);
-        this.oneTimeModifiedAmortized = createAmortized(this.principal, this.apr, this.startDate, this.payment, this._extraPaymentArray, 0);
+        let periodicArray: number[] = [];
+        for(let i = 0; i <= 5000; i += 50) { periodicArray.push(i); }
 
-        this.base_ppmtTrace = {
-            type: "scatter",
-            name: 'Principle Payment',
-            x: _.map(this.baseAmortized, row => row.date),
-            y: _.map(this.baseAmortized, row => row.ppmt),
-        };
+        let oneTimeArray: number[] = [];
+        for(let i = 0; i <= 150000; i += 500) { oneTimeArray.push(i); }
 
-        this.base_ipmtTrace = {
-            type: "scatter",
-            name: "Interest Payment",
-            x: _.map(this.baseAmortized, row => row.date),
-            y: _.map(this.baseAmortized, row => row.ipmt),
-        };
+        this.interestPeriodicGraph.x = periodicArray;
+        this.interestPeriodicGraph.y = _.map(periodicArray, periodic => {
+            let amortizedSchedule = new AmortizedSchedule(this.principal, this.apr, this.startDate, this.payment, this.extraPaymentArray);
+            amortizedSchedule.setPeriodicPayment(periodic);
+            return amortizedSchedule.totalInterest;
+        });
 
-        this.base_principalTrace = {
-            type: "scatter",
-            name: "Total Principal",
-            x: _.map(this.baseAmortized, row => row.date),
-            y: _.map(this.baseAmortized, row => row.principal)
-        };
+        this.payoffDatePeriodicGraph.x = periodicArray;
+        this.payoffDatePeriodicGraph.y = _.map(periodicArray, periodic => {
+            let amortizedSchedule = new AmortizedSchedule(this.principal, this.apr, this.startDate, this.payment, this.extraPaymentArray);
+            amortizedSchedule.setPeriodicPayment(periodic);
+            return amortizedSchedule.payoffDate;
+        });
 
-        this.modified_ppmtTrace = {
-            type: "scatter",
-            name: "Modified Principal Payment",
-            x: _.map(this.modifiedAmortized, row => row.date),
-            y: _.map(this.modifiedAmortized, row => row.ppmt)
-        };
+        this.interestOneTimeGraph.x = oneTimeArray;
+        this.interestOneTimeGraph.y = _.map(oneTimeArray, oneTime => {
+            let amortizedSchedule = new AmortizedSchedule(this.principal, this.apr, this.startDate, this.payment, this.extraPaymentArray);
+            amortizedSchedule.setOneTimeExtraPayment(oneTime);
+            return amortizedSchedule.totalInterest;
+        });
 
-        this.modified_ipmtTrace = {
-            type: "scatter",
-            name: "Modified Interest Payment",
-            x: _.map(this.modifiedAmortized, row => row.date),
-            y: _.map(this.modifiedAmortized, row => row.ipmt),
-        };
+        this.payoffDateOneTimeGraph.x = oneTimeArray;
+        this.payoffDateOneTimeGraph.y = _.map(oneTimeArray, oneTime => {
+            let amortizedSchedule = new AmortizedSchedule(this.principal, this.apr, this.startDate, this.payment, this.extraPaymentArray);
+            amortizedSchedule.setOneTimeExtraPayment(oneTime);
+            return amortizedSchedule.payoffDate;
+        });
 
-        this.modified_principalTrace = {
-            type: "scatter",
-            name: "Modified Total Principal",
-            x: _.map(this.modifiedAmortized, row => row.date),
-            y: _.map(this.modifiedAmortized, row => row.principal)
-        };
+        Plotly.react(<HTMLElement>this.$refs['interestPeriodicGraph' + this.uuid], [this.interestPeriodicGraph], { title: "Interest Periodic Graph" });
+        Plotly.react(<HTMLElement>this.$refs['payoffPeriodicGraph' + this.uuid], [this.payoffDatePeriodicGraph], { title: "Payoff Periodic Graph" });
 
-        this.periodic_ppmtTrace = {
-            type: "scatter",
-            name: "Periodic Principal Payment",
-            x: [],
-            y: []
-        };
-
-        this.periodic_ipmtTrace = {
-            type: "scatter",
-            name: "Periodic Interest Payment",
-            x: [],
-            y: [],
-        };
-
-        this.periodic_principalTrace = {
-            type: "scatter",
-            name: "Periodic Total Principal",
-            x: [],
-            y: []
-        };
-
-        this.oneTime_ppmtTrace = {
-            type: "scatter",
-            name: "Periodic Principal Payment",
-            x: [],
-            y: []
-        };
-
-        this.oneTime_ipmtTrace = {
-            type: "scatter",
-            name: "Periodic Interest Payment",
-            x: [],
-            y: [],
-        };
-
-        this.oneTime_principalTrace = {
-            type: "scatter",
-            name: "Periodic Total Principal",
-            x: [],
-            y: []
-        };
-
-        this.layout = {
-            title: 'Amortized Schedule'
-        };
+        Plotly.react(<HTMLElement>this.$refs['interestOneTimeGraph' + this.uuid], [this.interestOneTimeGraph], { title: "Interest One Time Graph" });
+        Plotly.react(<HTMLElement>this.$refs['payoffDateOneTimeGraph' + this.uuid], [this.payoffDateOneTimeGraph], { title: "Payoff One Time Graph" });
 
         this.updateGraphs();
     }
 
     private updateGraphs() {
-        Plotly.react('paymentsGraph', 
-            [this.base_ppmtTrace, this.base_ipmtTrace, this.modified_ppmtTrace, this.modified_ipmtTrace, this.periodic_ppmtTrace, this.periodic_ipmtTrace, this.oneTime_ppmtTrace, this.oneTime_ipmtTrace], this.layout);
-        Plotly.react('principalGraph',
-            [this.base_principalTrace, this.modified_principalTrace, this.periodic_principalTrace, this.oneTime_principalTrace], this.layout);
+        Plotly.react(<HTMLElement>this.$refs['paymentsGraph' + this.uuid], 
+            this.AmortizedTraceArray, 
+            {
+                title: 'Amortized Schedule'
+            });
+        Plotly.react(<HTMLElement>this.$refs['principalGraph' + this.uuid],
+            this.PrincipalTraceArray, 
+            {
+                title: 'Principal Schedule'
+            });
     }
 
     private onPeriodicChanged(input: number) {
-        this.periodicModifiedAmortized = createAmortized(this.principal, this.apr, this.startDate, this.payment, this._extraPaymentArray, input);
-
-        this.periodic_ppmtTrace.x = _.map(this.periodicModifiedAmortized, row => row.date);
-        this.periodic_ppmtTrace.y = _.map(this.periodicModifiedAmortized, row => row.ppmt);
-
-        this.periodic_ipmtTrace.x = _.map(this.periodicModifiedAmortized, row => row.date);
-        this.periodic_ipmtTrace.y = _.map(this.periodicModifiedAmortized, row => row.ipmt);
-
-        this.periodic_principalTrace.x = _.map(this.periodicModifiedAmortized, row => row.date);
-        this.periodic_principalTrace.y = _.map(this.periodicModifiedAmortized, row => row.principal);
-
+        this.periodicModifiedAmortized.setPeriodicPayment(input);
         this.updateGraphs();
     }
 
     private onOneTimeChanged(input: number) {
-        let newExtraPaymentsArray = this._extraPaymentArray.slice(0);
-        let newDate = (new Date());
-        newDate.setDate(1);
-        newExtraPaymentsArray.push({ date: newDate, amount: input });
-
-        this.oneTimeModifiedAmortized = createAmortized(this.principal, this.apr, this.startDate, this.payment, newExtraPaymentsArray, 0);
-
-        this.oneTime_ppmtTrace.x = _.map(this.oneTimeModifiedAmortized, row => row.date);
-        this.oneTime_ppmtTrace.y = _.map(this.oneTimeModifiedAmortized, row => row.ppmt);
-
-        this.oneTime_ipmtTrace.x = _.map(this.oneTimeModifiedAmortized, row => row.date);
-        this.oneTime_ipmtTrace.y = _.map(this.oneTimeModifiedAmortized, row => row.ipmt);
-
-        this.oneTime_principalTrace.x = _.map(this.oneTimeModifiedAmortized, row => row.date);
-        this.oneTime_principalTrace.y = _.map(this.oneTimeModifiedAmortized, row => row.principal);
-
+        this.oneTimeModifiedAmortized.setOneTimeExtraPayment(input);
         this.updateGraphs();
     }
 }

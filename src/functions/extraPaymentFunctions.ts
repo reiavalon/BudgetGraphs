@@ -1,4 +1,4 @@
-import { extraPaymentElem } from "./types";
+import { extraPaymentElem } from "@/functions/types";
 import * as _ from 'lodash';
 
 export function advanceDateByMonth(date: Date, months: number): Date {
