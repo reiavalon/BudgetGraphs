@@ -1,5 +1,13 @@
 <template>
   <div class="home">
+    <BudgetGraphCondensed
+      principal="182500.00"
+      apr="0.03000"
+      :startDate="houseStartDate"
+      payment="1260.31"
+      uuid="2"
+    />
+    <!--
     <BudgetGraphs 
       principal="182500.00"
       apr="0.03000"
@@ -7,16 +15,19 @@
       payment="1260.31"
       uuid="1"
     />
+    -->
   </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
+import BudgetGraphCondensed from '@/views/BudgetGraphCondensed.vue';
 import BudgetGraphs from '@/views/BudgetGraphs.vue';
 
 @Component({
   components: {
-    BudgetGraphs
+    BudgetGraphs,
+    BudgetGraphCondensed
   },
 })
 export default class Home extends Vue {
