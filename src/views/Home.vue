@@ -1,18 +1,11 @@
 <template>
   <div class="home">
     <BudgetGraphs 
-      principal="188000.00"
-      apr="0.0375"
+      principal="182500.00"
+      apr="0.03000"
       :startDate="houseStartDate"
-      payment="870.66"
+      payment="1260.31"
       uuid="1"
-    />
-    <BudgetGraphs 
-      principal="35477.99"
-      apr="0.0239"
-      :startDate="carStartDate"
-      payment="529.41"
-      uuid="2"
     />
   </div>
 </template>
@@ -35,7 +28,6 @@ export default class Home extends Vue {
     console.log(`onOneTimeChanged: ${input}`);
   }
 
-  private houseStartDate: Date = new Date(2017, 10-1, 27);
-  private carStartDate: Date = new Date(2016, 4-1, 22);
+  private houseStartDate: Date = new Date(2020, 5-1, 1);
 }
 </script>

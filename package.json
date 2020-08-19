@@ -7,26 +7,26 @@
     "build": "vue-cli-service build"
   },
   "dependencies": {
-    "@types/lodash": "^4.14.120",
-    "vue": "^2.5.22",
+    "@types/lodash": "^4.14.150",
+    "vue": "^2.6.11",
     "vue-class-component": "^6.0.0",
     "vue-property-decorator": "^7.0.0",
-    "vue-router": "^3.0.1",
-    "vuex": "^3.0.1"
+    "vue-router": "^3.1.6",
+    "vuex": "^3.3.0"
   },
   "devDependencies": {
-    "@types/plotly.js": "^1.43.0",
-    "@vue/cli-plugin-babel": "^3.4.0",
-    "@vue/cli-plugin-typescript": "^3.4.0",
-    "@vue/cli-service": "^3.4.0",
+    "@types/plotly.js": "^1.50.8",
+    "@vue/cli-plugin-babel": "^3.12.1",
+    "@vue/cli-plugin-typescript": "^3.12.1",
+    "@vue/cli-service": "^3.12.1",
     "lodash": "^4.17.15",
-    "node-sass": "^4.13.1",
+    "node-sass": "^4.14.0",
     "plotly": "^1.0.6",
-    "plotly.js": "^1.44.3",
-    "plotly.js-dist": "^1.44.3",
-    "sass-loader": "^7.1.0",
-    "typescript": "^3.0.0",
-    "vue-template-compiler": "^2.5.21"
+    "plotly.js": "^1.53.0",
+    "plotly.js-dist": "^1.53.0",
+    "sass-loader": "^7.3.1",
+    "typescript": "^3.8.3",
+    "vue-template-compiler": "^2.6.11"
   },
   "postcss": {
     "plugins": {
