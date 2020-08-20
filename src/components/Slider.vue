@@ -1,9 +1,10 @@
 <template>
-  <div>
-      <h1>{{title}}</h1>
-      <input type="range" min="0" :max="maxValue" v-model="currentValue" @input="_onValueChanged"/>
-      <div>Max Value: <input type="number" v-model="maxValue"/></div>
+  <div style="display:flex;">
+      <div>{{title}}:</div>
+      <div><input type="range" min="0" :max="maxValue" v-model="currentValue" @input="_onValueChanged"/></div>
       <div>{{currentValue}}</div>
+      <div style="padding:0px 5px;">of</div>
+      <div><input type="number" v-model="maxValue"/></div>
   </div>
 </template>
 

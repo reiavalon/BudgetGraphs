@@ -239,13 +239,47 @@ export default class BudgetGraphsCondensed extends Vue {
             return amortizedSchedule.payoffDate;
         });
 
-        Plotly.react(<HTMLElement>this.$refs['interestPeriodicGraph' + this.uuid], [this.interestPeriodicGraph], { title: "Interest Periodic Graph", showlegend: false });
-        Plotly.react(<HTMLElement>this.$refs['payoffPeriodicGraph' + this.uuid], [this.payoffDatePeriodicGraph], { title: "Payoff Periodic Graph", showlegend: false });
-
-        Plotly.react(<HTMLElement>this.$refs['interestOneTimeGraph' + this.uuid], [this.interestOneTimeGraph], { title: "Interest One Time Graph", showlegend: false });
-        Plotly.react(<HTMLElement>this.$refs['payoffDateOneTimeGraph' + this.uuid], [this.payoffDateOneTimeGraph], { title: "Payoff One Time Graph", showlegend: false });
-
         this.updateGraphs();
+    }
+
+    get currentInterestPeriodicMarkerTrace(): Partial<Plotly.PlotData>
+    {
+        return {
+            x: [this.currentPeriodicSliderValue, this.currentPeriodicSliderValue],
+            y: [0, _.max(this.interestPeriodicGraph.y)],
+            mode: 'lines',
+            type: 'scatter'
+        };
+    }
+
+    get currentPayoffPeriodicMarkerTrace(): Partial<Plotly.PlotData>
+    {
+        return {
+            x: [this.currentPeriodicSliderValue, this.currentPeriodicSliderValue],
+            y: [_.min(this.payoffDatePeriodicGraph.y), _.max(this.payoffDatePeriodicGraph.y)],
+            mode: 'lines',
+            type: 'scatter'
+        };
+    }
+
+    get currentInterestOneTimeMarkerTrace(): Partial<Plotly.PlotData>
+    {
+        return {
+            x: [this.currentOneTimeSliderValue, this.currentOneTimeSliderValue],
+            y: [0, _.max(this.interestOneTimeGraph.y)],
+            mode: 'lines',
+            type: 'scatter'
+        };
+    }
+
+    get currentPayoffOneTimeMarkerTrace(): Partial<Plotly.PlotData>
+    {
+        return {
+            x: [this.currentOneTimeSliderValue, this.currentOneTimeSliderValue],
+            y: [_.min(this.payoffDateOneTimeGraph.y), _.max(this.payoffDateOneTimeGraph.y)],
+            mode: 'lines',
+            type: 'scatter'
+        };
     }
 
     private updateGraphs() {
@@ -261,15 +295,26 @@ export default class BudgetGraphsCondensed extends Vue {
                 title: 'Principal Schedule', 
                 showlegend: false
             });
+
+        Plotly.react(<HTMLElement>this.$refs['interestPeriodicGraph' + this.uuid], [this.interestPeriodicGraph, this.currentInterestPeriodicMarkerTrace], { title: "Interest Periodic Graph", showlegend: false });
+        Plotly.react(<HTMLElement>this.$refs['payoffPeriodicGraph' + this.uuid], [this.payoffDatePeriodicGraph, this.currentPayoffPeriodicMarkerTrace], { title: "Payoff Periodic Graph", showlegend: false });
+
+        Plotly.react(<HTMLElement>this.$refs['interestOneTimeGraph' + this.uuid], [this.interestOneTimeGraph, this.currentInterestOneTimeMarkerTrace], { title: "Interest One Time Graph", showlegend: false });
+        Plotly.react(<HTMLElement>this.$refs['payoffDateOneTimeGraph' + this.uuid], [this.payoffDateOneTimeGraph, this.currentPayoffOneTimeMarkerTrace], { title: "Payoff One Time Graph", showlegend: false });
     }
+
+    private currentPeriodicSliderValue: number = 0;
+    private currentOneTimeSliderValue: number = 0;
 
     private onPeriodicChanged(input: number) {
         this.periodicModifiedAmortized.setPeriodicPayment(input);
+        this.currentPeriodicSliderValue = input;
         this.updateGraphs();
     }
 
     private onOneTimeChanged(input: number) {
         this.oneTimeModifiedAmortized.setOneTimeExtraPayment(input);
+        this.currentOneTimeSliderValue = input;
         this.updateGraphs();
     }
 }
